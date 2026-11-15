@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.extraheads.setup;
 
+import java.util.Locale;
 import java.util.logging.Level;
 
 import org.bukkit.entity.EntityType;
@@ -7,11 +8,11 @@ import org.bukkit.entity.EntityType;
 import io.github.thebusybiscuit.extraheads.ExtraHeads;
 import io.github.thebusybiscuit.extraheads.items.MobHead;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.libraries.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
 
 import net.guizhanss.guizhanlib.minecraft.utils.MinecraftVersionUtil;
 import net.guizhanss.guizhanlib.minecraft.utils.compatibility.EntityTypeX;
-import net.guizhanss.minecraft.guizhanlib.gugu.minecraft.helpers.entity.EntityTypeHelper;
 
 import lombok.experimental.UtilityClass;
 
@@ -106,7 +107,7 @@ public class ItemSetup {
             // https://minecraft-heads.com/custom-heads/head/105331-skeleton-horse
             registerHead(EntityType.SKELETON_HORSE, "ac7d8a16d3f0f98b598df93f2c2d34e75171cd52dbf4a1211d7b84c019416a40");
             // https://minecraft-heads.com/custom-heads/head/109991-snow-golem
-            registerHead(EntityType.SNOW_GOLEM, "e6f20aec528c3968dd8164f9d9336b081b3a2c7ecf189cf73df6f925e5a4ed14");
+            registerHead(EntityTypeX.SNOW_GOLEM, "e6f20aec528c3968dd8164f9d9336b081b3a2c7ecf189cf73df6f925e5a4ed14");
             // https://minecraft-heads.com/custom-heads/head/113925-trader-llama-grayed
             registerHead(EntityType.TRADER_LLAMA, "b1c54365d1ceac0da4a86b09067a17a4fd849eac422c79992642157996430289");
             // https://minecraft-heads.com/custom-heads/head/107004-tropical-fish-grayed
@@ -161,7 +162,6 @@ public class ItemSetup {
             registerHead(EntityType.ZOMBIE_NAUTILUS, "fd9a933376da44c3391307cb9f4cf03f16f3a54f495fd5a11bad8a373f9d5720");
             // https://minecraft-heads.com/custom-heads/head/89401-zombie-horse
             registerHead(EntityType.ZOMBIE_HORSE, "ce62ef83bc7ddc9b86a6a1a916d1ddb802f4d14fd75be8cac6d69c7b6e1cf97");
-
         }
 
         if (MinecraftVersionUtil.isAtLeast(26, 2)) {
@@ -172,25 +172,67 @@ public class ItemSetup {
         ExtraHeads.getRegistry().getConfig().save();
     }
 
+    private static final double DEFAULT_CHANCE = 5.0;
+
     private static void registerHead(EntityType type, String texture) {
         try {
-            double chance = ExtraHeads.getRegistry().getConfig().getOrSetDefault("chances." + type.toString(), 5.0);
+            double chance = getChance(type);
+            String name = getDisplayName(type);
             SlimefunItemStack item = new SlimefunItemStack(
                 type + "_HEAD",
                 texture,
-                "&f" + EntityTypeHelper.getName(type) + "头"
+                "&f" + name + " Head"
             );
             new MobHead(
                 type,
                 item,
                 new CustomItemStack(
                     item,
-                    "&r击杀" + EntityTypeHelper.getName(type),
-                    "&7几率：&e" + chance + "%"
+                    "&rKill a " + name,
+                    "&7Chance: &e" + chance + "%"
                 )
             ).register(ExtraHeads.getInstance());
-        } catch (Exception x) {
+        } catch (Exception | LinkageError x) {
             ExtraHeads.getInstance().getLogger().log(Level.WARNING, x, () -> "Could not load Mob Head for Entity: " + type);
         }
+    }
+
+    /**
+     * Reads the drop chance of the given {@link EntityType} from the config.
+     * Any numeric value (e.g. {@code 10} or {@code 2.5}) is accepted. Only a missing
+     * or non-numeric value is replaced with the default.
+     */
+    private static double getChance(EntityType type) {
+        Config config = ExtraHeads.getRegistry().getConfig();
+        String path = "chances." + type;
+        Object value = config.getValue(path);
+
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+
+        config.setValue(path, DEFAULT_CHANCE);
+        return DEFAULT_CHANCE;
+    }
+
+    /**
+     * Turns an {@link EntityType} constant into a readable name,
+     * e.g. {@code ZOMBIFIED_PIGLIN} becomes {@code Zombified Piglin}.
+     */
+    private static String getDisplayName(EntityType type) {
+        String[] words = type.toString().toLowerCase(Locale.ROOT).split("_");
+        StringBuilder builder = new StringBuilder();
+
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (builder.length() > 0) {
+                builder.append(' ');
+            }
+            builder.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+
+        return builder.toString();
     }
 }

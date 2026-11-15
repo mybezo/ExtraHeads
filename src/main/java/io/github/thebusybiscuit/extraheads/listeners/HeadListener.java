@@ -13,34 +13,35 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 
 import io.github.thebusybiscuit.extraheads.ExtraHeads;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.weapons.SwordOfBeheading;
 
 public class HeadListener implements Listener {
 
-    private final ExtraHeads plugin;
-
     public HeadListener(ExtraHeads plugin) {
-        this.plugin = plugin;
-
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onKill(EntityDeathEvent e) {
-        var registry = ExtraHeads.getRegistry();
         var entityType = e.getEntityType();
+        SlimefunItem head = ExtraHeads.getRegistry().getHeads().get(entityType);
+
+        if (head == null) {
+            return;
+        }
+
         double chance = getChance(entityType, e.getEntity().getKiller());
 
-        if (ThreadLocalRandom.current().nextInt(100) < chance) {
-            e.getEntity().getWorld().dropItemNaturally(e.getEntity().getLocation(), registry.getHeads().get(entityType).getItem().clone());
+        // nextDouble() keeps fractional chances (e.g. 0.5%) accurate,
+        // nextInt(100) would round them up to the next whole percent.
+        if (ThreadLocalRandom.current().nextDouble(100) < chance) {
+            e.getDrops().add(head.getItem().clone());
         }
     }
 
     private double getChance(@Nonnull EntityType type, @Nullable Player killer) {
-        if (!ExtraHeads.getRegistry().getHeads().containsKey(type)) {
-            return 0;
-        }
         double chance = ExtraHeads.getRegistry().getConfig().getDouble("chances." + type);
 
         if (killer == null) {
@@ -48,8 +49,8 @@ public class HeadListener implements Listener {
         }
 
         ItemStack item = killer.getInventory().getItemInMainHand();
-        SwordOfBeheading sword = (SwordOfBeheading) SlimefunItems.SWORD_OF_BEHEADING.getItem();
-        if (item.getType().isAir() || sword == null || !sword.isItem(item) || sword.isDisabledIn(killer.getWorld())) {
+        if (item.getType().isAir() || !(SlimefunItems.SWORD_OF_BEHEADING.getItem() instanceof SwordOfBeheading sword)
+            || !sword.isItem(item) || sword.isDisabledIn(killer.getWorld())) {
             return chance;
         }
 
