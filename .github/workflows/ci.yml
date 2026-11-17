@@ -27,3 +27,10 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew clean shadowJar
+
+      - name: Upload plugin jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: ExtraHeads
+          path: build/libs/*.jar
+          if-no-files-found: error
